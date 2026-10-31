@@ -1,0 +1,30 @@
+[Unit]
+Description=Megrez identity gate
+After=network.target
+
+[Service]
+Type=simple
+User=megrez
+Group=megrez
+WorkingDirectory=__PREFIX__
+ExecStart=__PREFIX__/bin/megrez serve \
+  -addr 127.0.0.1:__PORT__ \
+  -db __PREFIX__/data/megrez.db \
+  -key __PREFIX__/data/signing.key \
+  -trust-proxy
+Restart=on-failure
+RestartSec=3
+
+# 内存上限：目标是常驻 100MB 以内，这里留一点余量
+MemoryMax=120M
+CPUQuota=50%
+
+# 最小权限
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__PREFIX__/data
+
+[Install]
+WantedBy=multi-user.target

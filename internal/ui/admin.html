@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>天权</title>
+<style>
+  :root {
+    --ink: #1b1b1b;
+    --ink-soft: #5a5a5a;
+    --ink-faint: #8c8c8c;
+    --line: #e6e6e6;
+    --bg: #ffffff;
+    --bg-soft: #fafafa;
+    --accent: #1b1b1b;
+    --pending: #9a6b00;
+    --pending-bg: #fdf6e6;
+    --ok: #2f6b4f;
+    --ok-bg: #edf5f1;
+    --bad: #96322f;
+    --bad-bg: #fbeeee;
+    --mute: #6b6b6b;
+    --mute-bg: #f2f2f2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink-soft);
+    font: 14px/1.6 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 40px 28px 72px; }
+  header { margin-bottom: 28px; }
+  h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--ink); letter-spacing: .02em; }
+  .sub { margin: 0; color: var(--ink-faint); font-size: 13px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 24px; margin-bottom: 20px; background: var(--bg); }
+  .authcard { max-width: 360px; margin: 0 auto 20px; padding: 28px; }
+  .enrollcard { max-width: 780px; margin: 0 auto 20px; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: .02em; }
+  .hint { color: var(--ink-faint); font-size: 12px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field label { font-size: 12px; color: var(--ink-faint); letter-spacing: .04em; }
+  input[type=text], input[type=password], input[type=number] {
+    font: inherit; color: var(--ink); background: var(--bg-soft);
+    border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; outline: none;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  input:focus { border-color: #b9b9b9; background: #fff; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 7px; padding: 9px 16px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    transition: background .15s ease, border-color .15s ease, opacity .15s ease;
+  }
+  button:hover:not(:disabled) { background: var(--bg-soft); border-color: #d2d2d2; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #000; border-color: #000; }
+  button.ghost { border-color: transparent; background: transparent; color: var(--ink-faint); padding: 6px 8px; }
+  button.ghost:hover:not(:disabled) { color: var(--ink); background: var(--bg-soft); }
+  button.small { padding: 5px 10px; font-size: 12px; }
+  button.block { width: 100%; }
+  .msg { margin-top: 12px; font-size: 13px; min-height: 18px; color: var(--ink-faint); }
+  .msg.error { color: var(--bad); }
+  .msg.ok { color: var(--ok); }
+  .note { margin: 0 0 16px; font-size: 13px; color: var(--ink-faint); }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { text-align: left; padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 12px; font-weight: 500; color: var(--ink-faint); letter-spacing: .05em; border-bottom-color: #dedede; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td { font-size: 13px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; }
+  td.name { color: var(--ink); font-weight: 500; }
+  .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; letter-spacing: .02em; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; line-height: 1.7; }
+  .chip.pending { color: var(--pending); background: var(--pending-bg); }
+  .chip.approved { color: var(--ok); background: var(--ok-bg); }
+  .chip.rejected { color: var(--mute); background: var(--mute-bg); }
+  .chip.revoked { color: var(--bad); background: var(--bad-bg); }
+  .acts { display: flex; gap: 4px; justify-content: flex-end; }
+  .empty { padding: 26px 0; text-align: center; color: var(--ink-faint); font-size: 13px; }
+  .pairbox { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  .paircode { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 19px; letter-spacing: .12em; color: var(--ink); }
+  .countdown { font-size: 12px; color: var(--ink-faint); }
+  .log { margin: 0; padding: 0; list-style: none; }
+  .log li { display: grid; grid-template-columns: 148px 130px 150px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .log li:last-child { border-bottom: 0; }
+  .log .t { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .log .e { color: var(--ink); }
+  .log .d { color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .hidden { display: none !important; }
+
+  .enroll { display: grid; grid-template-columns: 292px 1fr; gap: 26px; align-items: start; }
+  .qrwrap { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--bg-soft); }
+  .qrwrap img { display: block; width: 100%; height: auto; border-radius: 4px; background: #fff; }
+  .qrnote { margin-top: 10px; font-size: 12px; color: var(--ink-faint); text-align: center; }
+  .steps { margin: 0 0 18px; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { position: relative; padding-left: 30px; margin-bottom: 10px; color: var(--ink-soft); }
+  .steps li::before {
+    counter-increment: s; content: counter(s);
+    position: absolute; left: 0; top: 2px;
+    width: 20px; height: 20px; line-height: 20px; text-align: center;
+    border: 1px solid var(--line); border-radius: 50%;
+    font-size: 11px; color: var(--ink-faint); background: #fff;
+  }
+  .pwgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .secretbox { margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-soft); padding: 14px; }
+  .secretbox .lab { font-size: 12px; color: var(--ink-faint); }
+  .secretbox .kv { margin-top: 4px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--ink); word-break: break-all; }
+
+  @media (max-width: 860px) {
+    .split { grid-template-columns: 1fr; }
+    .log li { grid-template-columns: 1fr 1fr; }
+    table { table-layout: auto; }
+    .enroll { grid-template-columns: 1fr; }
+    .qrwrap { max-width: 292px; }
+    .pwgrid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- 首次打开：设置管理员密码，不需要命令行 -->
+  <section id="setupCard" class="card authcard hidden">
+    <h2>首次设置</h2>
+    <p class="note" style="margin-top:10px">给这个平台设置管理员账号和密码（至少 14 位）。之后用这个账号登录，再绑定手机验证器。</p>
+    <div class="stack">
+      <div class="field"><label for="su">账号</label><input id="su" type="text" autocomplete="username" value="owner"></div>
+      <div class="field"><label for="sp1">密码</label><input id="sp1" type="password" autocomplete="new-password"></div>
+      <div class="field"><label for="sp2">确认密码</label><input id="sp2" type="password" autocomplete="new-password"></div>
+      <button id="setupBtn" class="primary block">创建管理员</button>
+    </div>
+    <div id="setupMsg" class="msg"></div>
+  </section>
+
+  <!-- 第一步：只有账号和密码 -->
+  <section id="loginCard" class="card authcard hidden">
+    <h2>登录</h2>
+    <div class="stack" style="margin-top:16px">
+      <div class="field"><label for="u">账号</label><input id="u" type="text" autocomplete="username"></div>
+      <div class="field"><label for="p">密码</label><input id="p" type="password" autocomplete="current-password"></div>
+      <button id="loginBtn" class="primary block">登录</button>
+    </div>
+    <div id="loginMsg" class="msg"></div>
+  </section>
+
+  <!-- 第二步：只有一个输入框 -->
+  <section id="otpCard" class="card authcard hidden">
+    <h2>验证</h2>
+    <p class="note" style="margin-top:10px">请输入验证器当前显示的 6 位数字。</p>
+    <div class="stack">
+      <div class="field">
+        <input id="otpCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+      </div>
+      <button id="otpBtn" class="primary block">确认</button>
+      <button id="otpBack" class="ghost block">返回上一步</button>
+    </div>
+    <div id="otpMsg" class="msg"></div>
+  </section>
+
+  <!-- 首次登录：扫码绑定 -->
+  <section id="enrollCard" class="card enrollcard hidden">
+    <div class="card-head">
+      <h2>绑定验证器</h2>
+      <span class="hint">只绑定一次，完成后需要重新登录</span>
+    </div>
+    <div class="enroll">
+      <div>
+        <div class="qrwrap">
+          <img id="qrImg" alt="绑定二维码" width="264" height="264">
+        </div>
+        <p class="qrnote">这张码只显示一次，绑定后不再出现</p>
+      </div>
+      <div>
+        <ol class="steps">
+          <li>打开手机验证器，选「扫描二维码」对准左边。</li>
+          <li>扫完后把它显示的 6 位数字填到下面。</li>
+          <li>点「确认绑定」，系统会立刻退出登录。</li>
+          <li>重新登录一次，确认新方式已经生效。</li>
+        </ol>
+        <div class="row">
+          <div class="field" style="max-width:200px">
+            <label for="bindCode">6 位数字</label>
+            <input id="bindCode" type="text" inputmode="numeric" maxlength="6" placeholder="000000">
+          </div>
+          <button id="bindBtn" class="primary">确认绑定</button>
+          <button id="enrollLogout" class="ghost">退出</button>
+        </div>
+        <div id="bindMsg" class="msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="mainArea" class="hidden">
+    <header>
+      <h1>天权</h1>
+      <p class="sub">新设备默认拒绝。批准前它拿不到挑战，也就拿不到任何凭证。</p>
+    </header>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>设备</h2>
+        <div>
+          <span id="deviceCount" class="hint"></span>
+          <button id="logoutBtn" class="ghost">退出</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:15%">设备名</th>
+            <th style="width:9%">平台</th>
+            <th style="width:19%">公钥指纹</th>
+            <th style="width:10%">状态</th>
+            <th style="width:15%">首次注册</th>
+            <th style="width:12%">最近活跃</th>
+            <th style="width:12%">来源</th>
+            <th style="width:8%"></th>
+          </tr>
+        </thead>
+        <tbody id="deviceRows"></tbody>
+      </table>
+      <div id="deviceEmpty" class="empty hidden">还没有任何设备注册过。</div>
+    </section>
+
+    <div class="split">
+      <section class="card">
+        <div class="card-head">
+          <h2>一次性配对码</h2>
+          <span class="hint">用它才能注册</span>
+        </div>
+        <div class="row">
+          <div class="field" style="max-width:180px">
+            <label for="ttl">有效期（分钟）</label>
+            <input id="ttl" type="number" min="1" max="1440" value="10">
+          </div>
+          <button id="pairBtn" class="primary">生成</button>
+        </div>
+        <div id="pairBox" class="pairbox hidden">
+          <span id="pairCode" class="paircode"></span>
+          <span id="pairCountdown" class="countdown"></span>
+        </div>
+        <div id="pairMsg" class="msg"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>审计</h2>
+          <span id="auditHint" class="hint"></span>
+        </div>
+        <ul id="auditList" class="log"></ul>
+        <div id="auditEmpty" class="empty hidden">暂无记录。</div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>修改密码</h2>
+        <span class="hint">至少 14 位；改完所有会话失效，需要重新登录</span>
+      </div>
+      <div class="pwgrid">
+        <div class="field"><label for="pwCur">当前密码</label><input id="pwCur" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="pwNew">新密码</label><input id="pwNew" type="password" autocomplete="new-password"></div>
+        <div class="field"><label for="pwNew2">确认新密码</label><input id="pwNew2" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button id="pwBtn" class="primary">保存新密码</button>
+      </div>
+      <div id="pwMsg" class="msg"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>接入项目</h2>
+        <span class="hint">登记后把 client_id / secret 填进项目后端</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:20%">项目</th>
+            <th style="width:38%">回调地址</th>
+            <th style="width:14%">票据有效期</th>
+            <th style="width:12%">状态</th>
+            <th style="width:16%"></th>
+          </tr>
+        </thead>
+        <tbody id="clientRows"></tbody>
+      </table>
+      <div id="clientEmpty" class="empty hidden">还没有接入任何项目。</div>
+
+      <div class="row" style="margin-top:16px">
+        <div class="field" style="flex:2"><label for="cname">项目名</label><input id="cname" type="text" placeholder="crm-mini"></div>
+        <div class="field" style="flex:3"><label for="credirect">回调地址</label><input id="credirect" type="text" placeholder="https://crm.example.com/auth/callback"></div>
+        <div class="field" style="max-width:150px"><label for="cttl">有效期（分钟）</label><input id="cttl" type="number" min="5" max="525600" value="480"></div>
+        <button id="clientBtn" class="primary">登记</button>
+      </div>
+      <div id="clientMsg" class="msg"></div>
+
+      <div id="secretBox" class="secretbox hidden">
+        <div class="lab">只显示这一次，关掉页面就看不到了——把这两行填进项目后端的环境变量。</div>
+        <div class="lab" style="margin-top:10px">client_id</div>
+        <div class="kv" id="sClientId"></div>
+        <div class="lab" style="margin-top:10px">client_secret</div>
+        <div class="kv" id="sSecret"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var setupCard = $('setupCard'), loginCard = $('loginCard'), otpCard = $('otpCard'),
+      enrollCard = $('enrollCard'), mainArea = $('mainArea');
+  var otpToken = null;
+  var countdownTimer = null;
+  // SSO 回跳：只接受站内路径，防止被拿去做开放重定向。
+  var nextURL = (function () {
+    var v = new URLSearchParams(location.search).get('next') || '';
+    if (!v || v.charAt(0) !== '/' || v.charAt(1) === '/') return '';
+    return v;
+  })();
+
+  function goNext() {
+    if (nextURL) location.href = nextURL;
+  }
+
+  function setMsg(el, text, kind) {
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    opts.headers = opts.headers || {};
+    if (opts.body !== undefined) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    return fetch(path, opts).then(function (res) {
+      return res.text().then(function (raw) {
+        var data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch (e) { data = null; }
+        if (!res.ok) {
+          var err = new Error((data && data.error) || ('请求失败（' + res.status + '）'));
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  function hideAll() {
+    setupCard.classList.add('hidden');
+    loginCard.classList.add('hidden');
+    otpCard.classList.add('hidden');
+    enrollCard.classList.add('hidden');
+    mainArea.classList.add('hidden');
+  }
+
+  function showSetup() {
+    hideAll();
+    setupCard.classList.remove('hidden');
+    $('sp1').focus();
+  }
+
+  function showLogin(msg, kind) {
+    hideAll();
+    otpToken = null;
+    loginCard.classList.remove('hidden');
+    setMsg($('loginMsg'), msg || '', kind);
+    $('p').value = '';
+    $('p').focus();
+  }
+
+  function showOTP() {
+    hideAll();
+    otpCard.classList.remove('hidden');
+    $('otpCode').value = '';
+    setMsg($('otpMsg'), '');
+    $('otpCode').focus();
+  }
+
+  function showEnroll() {
+    hideAll();
+    enrollCard.classList.remove('hidden');
+    $('qrImg').src = '/api/admin/otp/qr.png?ts=' + Date.now();
+    $('bindCode').value = '';
+    setMsg($('bindMsg'), '');
+    $('bindCode').focus();
+  }
+
+  function showMain() {
+    hideAll();
+    mainArea.classList.remove('hidden');
+  }
+
+  function fmtTime(sec) {
+    if (!sec) return '—';
+    var d = new Date(sec * 1000);
+    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+      pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  var PLATFORM = { windows: 'Windows', macos: 'macOS', linux: 'Linux', ios: 'iOS', android: 'Android' };
+  var STATUS = { pending: '待审批', approved: '已批准', rejected: '已拒绝', revoked: '已吊销' };
+
+  function chip(status) {
+    var el = document.createElement('span');
+    el.className = 'chip ' + status;
+    el.textContent = STATUS[status] || status;
+    return el;
+  }
+
+  function cell(text, cls) {
+    var el = document.createElement('td');
+    if (cls) el.className = cls;
+    el.textContent = (text === undefined || text === null || text === '') ? '—' : text;
+    el.title = el.textContent;
+    return el;
+  }
+
+  function actionBtn(label, kind, handler) {
+    var b = document.createElement('button');
+    b.className = 'small' + (kind ? ' ' + kind : '');
+    b.textContent = label;
+    b.addEventListener('click', handler);
+    return b;
+  }
+
+  function renderDevices(devices) {
+    var rows = $('deviceRows');
+    rows.innerHTML = '';
+    $('deviceEmpty').classList.toggle('hidden', devices.length > 0);
+    var pending = devices.filter(function (d) { return d.status === 'pending'; }).length;
+    $('deviceCount').textContent = devices.length
+      ? ('共 ' + devices.length + ' 台，其中待审批 ' + pending + ' 台') : '';
+    devices.forEach(function (d) {
+      var tr = document.createElement('tr');
+      tr.appendChild(cell(d.name + (d.note ? '（' + d.note + '）' : ''), 'name'));
+      tr.appendChild(cell(PLATFORM[d.platform] || d.platform));
+      tr.appendChild(cell(d.fingerprint, 'mono'));
+
+      var st = document.createElement('td');
+      st.appendChild(chip(d.status));
+      tr.appendChild(st);
+
+      tr.appendChild(cell(fmtTime(d.created_at)));
+      tr.appendChild(cell(fmtTime(d.last_seen_at)));
+      tr.appendChild(cell(d.last_ip || '—'));
+
+      var acts = document.createElement('td');
+      var box = document.createElement('div');
+      box.className = 'acts';
+      if (d.status === 'pending') {
+        box.appendChild(actionBtn('批准', 'primary', function () { act(d, 'approve'); }));
+        box.appendChild(actionBtn('拒绝', '', function () { act(d, 'reject'); }));
+      } else if (d.status === 'approved') {
+        box.appendChild(actionBtn('吊销', '', function () { act(d, 'revoke'); }));
+      }
+      acts.appendChild(box);
+      tr.appendChild(acts);
+      rows.appendChild(tr);
+    });
+  }
+
+  function act(device, action) {
+    var note = '';
+    if (action === 'reject' || action === 'revoke') {
+      note = window.prompt(action === 'reject' ? '拒绝原因（可留空）' : '吊销原因（可留空）', '') || '';
+    }
+    api('/api/admin/devices/' + encodeURIComponent(device.id) + '/' + action, {
+      method: 'POST', body: { note: note }
+    }).then(function () {
+      return refreshAll();
+    }).catch(function (err) {
+      window.alert(err.message);
+    });
+  }
+
+  function renderAudit(entries) {
+    var list = $('auditList');
+    list.innerHTML = '';
+    $('auditEmpty').classList.toggle('hidden', entries.length > 0);
+    $('auditHint').textContent = entries.length ? ('最近 ' + entries.length + ' 条') : '';
+    entries.forEach(function (e) {
+      var li = document.createElement('li');
+      var t = document.createElement('span'); t.className = 't'; t.textContent = fmtTime(e.at);
+      var ev = document.createElement('span'); ev.className = 'e'; ev.textContent = e.event;
+      var ip = document.createElement('span'); ip.className = 't'; ip.textContent = e.ip || '—';
+      var dt = document.createElement('span'); dt.className = 'd';
+      dt.textContent = (e.device_id || '') + (e.detail ? ' · ' + e.detail : '');
+      dt.title = dt.textContent;
+      li.appendChild(t); li.appendChild(ev); li.appendChild(ip); li.appendChild(dt);
+      list.appendChild(li);
+    });
+  }
+
+  function renderClients(clients) {
+    var rows = $('clientRows');
+    rows.innerHTML = '';
+    $('clientEmpty').classList.toggle('hidden', clients.length > 0);
+    clients.forEach(function (c) {
+      var tr = document.createElement('tr');
+      tr.appendChild(cell(c.name, 'name'));
+      tr.appendChild(cell(c.redirect_uri, 'mono'));
+
+      var ttl = c.token_ttl_seconds > 0
+        ? (c.token_ttl_seconds >= 86400 ? (c.token_ttl_seconds / 86400).toFixed(0) + ' 天'
+          : (c.token_ttl_seconds / 3600).toFixed(1) + ' 小时')
+        : '默认';
+      tr.appendChild(cell(ttl));
+
+      var st = document.createElement('td');
+      var chipEl = document.createElement('span');
+      chipEl.className = 'chip ' + (c.revoked ? 'revoked' : 'approved');
+      chipEl.textContent = c.revoked ? '已吊销' : '正常';
+      st.appendChild(chipEl);
+      tr.appendChild(st);
+
+      var acts = document.createElement('td');
+      var box = document.createElement('div');
+      box.className = 'acts';
+      if (!c.revoked) {
+        box.appendChild(actionBtn('吊销', '', function () {
+          if (!window.confirm('吊销后该项目不能再发起登录，确定？')) return;
+          api('/api/admin/clients/' + encodeURIComponent(c.client_id) + '/revoke', { method: 'POST', body: {} })
+            .then(refreshAll)
+            .catch(function (err) { window.alert(err.message); });
+        }));
+      }
+      acts.appendChild(box);
+      tr.appendChild(acts);
+      rows.appendChild(tr);
+    });
+  }
+
+  function refreshAll() {
+    return Promise.all([
+      api('/api/admin/devices'),
+      api('/api/admin/audit?limit=60'),
+      api('/api/admin/clients')
+    ]).then(function (r) {
+      renderDevices(r[0].devices || []);
+      renderAudit(r[1].entries || []);
+      renderClients(r[2].clients || []);
+      showMain();
+    });
+  }
+
+  $('setupBtn').addEventListener('click', function () {
+    var btn = this;
+    var u = $('su').value.trim();
+    var p1 = $('sp1').value, p2 = $('sp2').value;
+    if (!u) { setMsg($('setupMsg'), '请填写账号', 'error'); return; }
+    if (p1.length < 14) { setMsg($('setupMsg'), '密码至少 14 个字符', 'error'); return; }
+    if (p1 !== p2) { setMsg($('setupMsg'), '两次输入的密码不一致', 'error'); return; }
+    btn.disabled = true;
+    setMsg($('setupMsg'), '正在创建…');
+    api('/api/admin/setup', { method: 'POST', body: { username: u, password: p1 } })
+      .then(function () {
+        $('sp1').value = '';
+        $('sp2').value = '';
+        $('u').value = u;
+        showLogin('管理员已创建。请用刚才的密码登录，然后按提示绑定手机验证器。', 'ok');
+      })
+      .catch(function (err) {
+        setMsg($('setupMsg'), err.message, 'error');
+      })
+      .then(function () {
+        btn.disabled = false;
+      });
+  });
+
+  $('loginBtn').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    setMsg($('loginMsg'), '正在登录…');
+    api('/api/admin/login', {
+      method: 'POST',
+      body: { username: $('u').value.trim(), password: $('p').value }
+    }).then(function (data) {
+      $('p').value = '';
+      setMsg($('loginMsg'), '');
+      if (data.step === 'enroll') {
+        showEnroll();
+        return;
+      }
+      otpToken = data.otp_token || null;
+      if (!otpToken) {
+        setMsg($('loginMsg'), '登录失败，请重试', 'error');
+        return;
+      }
+      showOTP();
+    }).catch(function (err) {
+      setMsg($('loginMsg'), err.message, 'error');
+    }).then(function () {
+      btn.disabled = false;
+    });
+  });
+
+  $('otpBtn').addEventListener('click', function () {
+    var btn = this;
+    var code = $('otpCode').value.trim();
+    if (code.length !== 6) {
+      setMsg($('otpMsg'), '请输入 6 位数字', 'error');
+      return;
+    }
+    if (!otpToken) {
+      showLogin('登录状态已超时，请重新输入账号密码');
+      return;
+    }
+    btn.disabled = true;
+    setMsg($('otpMsg'), '正在验证…');
+    api('/api/admin/login/otp', { method: 'POST', body: { otp_token: otpToken, code: code } })
+      .then(function () {
+        otpToken = null;
+        setMsg($('otpMsg'), '');
+        return refreshAll();
+      })
+      .then(function () {
+        goNext();
+      })
+      .catch(function (err) {
+        setMsg($('otpMsg'), err.message, 'error');
+      })
+      .then(function () {
+        btn.disabled = false;
+      });
+  });
+
+  $('otpBack').addEventListener('click', function () {
+    showLogin('');
+  });
+
+  $('bindBtn').addEventListener('click', function () {
+    var btn = this;
+    var code = $('bindCode').value.trim();
+    if (code.length !== 6) {
+      setMsg($('bindMsg'), '请输入 6 位数字', 'error');
+      return;
+    }
+    btn.disabled = true;
+    setMsg($('bindMsg'), '正在校验…');
+    api('/api/admin/otp/confirm', { method: 'POST', body: { code: code } })
+      .then(function () {
+        if (nextURL) {
+          location.href = nextURL;   // 绑定完直接回到待授权页面，会要求用新方式登录一次
+          return;
+        }
+        showLogin('绑定成功，已退出登录。请重新登录一次确认生效。', 'ok');
+      })
+      .catch(function (err) {
+        setMsg($('bindMsg'), err.message, 'error');
+      })
+      .then(function () {
+        btn.disabled = false;
+      });
+  });
+
+  $('enrollLogout').addEventListener('click', function () {
+    api('/api/admin/logout', { method: 'POST' }).then(function () {
+      showLogin('已退出登录。');
+    });
+  });
+
+  $('logoutBtn').addEventListener('click', function () {
+    api('/api/admin/logout', { method: 'POST' }).then(function () {
+      showLogin('已退出登录。');
+    });
+  });
+
+  $('pairBtn').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    setMsg($('pairMsg'), '正在生成…');
+    api('/api/admin/pair-codes', {
+      method: 'POST', body: { ttl_minutes: parseInt($('ttl').value, 10) || 10 }
+    }).then(function (data) {
+      $('pairBox').classList.remove('hidden');
+      $('pairCode').textContent = data.code;
+      setMsg($('pairMsg'), '只显示这一次，过期或使用后即失效。', 'ok');
+      var deadline = Date.now() + data.expires_in * 1000;
+      if (countdownTimer) clearInterval(countdownTimer);
+      var tick = function () {
+        var left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
+        var m = Math.floor(left / 60), s = left % 60;
+        $('pairCountdown').textContent = left > 0 ? ('剩余 ' + m + ':' + (s < 10 ? '0' + s : s)) : '已过期';
+        if (left <= 0) clearInterval(countdownTimer);
+      };
+      tick();
+      countdownTimer = setInterval(tick, 1000);
+      return refreshAll();
+    }).catch(function (err) {
+      setMsg($('pairMsg'), err.message, 'error');
+    }).then(function () {
+      btn.disabled = false;
+    });
+  });
+
+  $('pwBtn').addEventListener('click', function () {
+    var btn = this;
+    var cur = $('pwCur').value, next = $('pwNew').value, again = $('pwNew2').value;
+    if (next.length < 14) {
+      setMsg($('pwMsg'), '新密码至少 14 个字符', 'error');
+      return;
+    }
+    if (next !== again) {
+      setMsg($('pwMsg'), '两次输入的新密码不一致', 'error');
+      return;
+    }
+    btn.disabled = true;
+    setMsg($('pwMsg'), '正在保存…');
+    api('/api/admin/password', {
+      method: 'POST', body: { current_password: cur, new_password: next }
+    }).then(function () {
+      $('pwCur').value = ''; $('pwNew').value = ''; $('pwNew2').value = '';
+      showLogin('密码已修改，所有会话已退出。请用新密码重新登录。', 'ok');
+    }).catch(function (err) {
+      setMsg($('pwMsg'), err.message, 'error');
+    }).then(function () {
+      btn.disabled = false;
+    });
+  });
+
+  $('clientBtn').addEventListener('click', function () {
+    var btn = this;
+    var name = $('cname').value.trim();
+    var redirect = $('credirect').value.trim();
+    if (!name || !redirect) {
+      setMsg($('clientMsg'), '项目名和回调地址都要填', 'error');
+      return;
+    }
+    btn.disabled = true;
+    setMsg($('clientMsg'), '正在登记…');
+    $('secretBox').classList.add('hidden');
+    api('/api/admin/clients', {
+      method: 'POST',
+      body: {
+        name: name,
+        redirect_uri: redirect,
+        token_ttl_minutes: parseInt($('cttl').value, 10) || 480
+      }
+    }).then(function (data) {
+      $('sClientId').textContent = data.client_id;
+      $('sSecret').textContent = data.client_secret;
+      $('secretBox').classList.remove('hidden');
+      setMsg($('clientMsg'), '已登记，secret 只显示这一次。', 'ok');
+      $('cname').value = '';
+      $('credirect').value = '';
+      return refreshAll();
+    }).catch(function (err) {
+      setMsg($('clientMsg'), err.message, 'error');
+    }).then(function () {
+      btn.disabled = false;
+    });
+  });
+
+  // 首屏：先判断有没有初始化，再按会话状态决定落在哪一页。
+  api('/api/admin/status').then(function (st) {
+    if (!st.initialized) {
+      showSetup();
+      return;
+    }
+    return api('/api/admin/me').then(function (me) {
+      if (me.scope === 'pending_enroll') {
+        showEnroll();
+        return;
+      }
+      return refreshAll().then(function () { goNext(); });
+    }).catch(function () {
+      showLogin('');
+    });
+  }).catch(function () {
+    showLogin('');
+  });
+})();
+</script>
+</body>
+</html>

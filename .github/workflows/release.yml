@@ -1,0 +1,77 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go vet ./...
+      - run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            name: linux-amd64
+          - os: windows
+            arch: amd64
+            name: windows-amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build
+        env:
+          CGO_ENABLED: '0'
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags="-s -w" -o dist/ ./cmd/...
+      - name: package (linux)
+        if: matrix.os == 'linux'
+        run: |
+          mkdir -p pkg
+          cp dist/megrez pkg/
+          cp deploy/install.sh deploy/megrez.service pkg/
+          tar -C pkg -czf "dist/megrez-${{ matrix.name }}.tar.gz" .
+      - name: package (windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/* -DestinationPath "dist/megrez-${{ matrix.name }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: megrez-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

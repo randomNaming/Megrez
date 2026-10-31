@@ -1,0 +1,25 @@
+# 依赖与构建产物
+node_modules/
+dist/
+.output/
+.nuxt/
+bin/
+data/
+*.exe
+*.key
+
+# 配置与凭据：密码、配对码、密钥一律不进版本库
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# 日志
+*.log
+logs/
+
+# 本地临时
+.tmp/

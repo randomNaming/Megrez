@@ -1,0 +1,4 @@
+# 统一换行，防止 Windows 检出后把服务器脚本变成 CRLF（会让 bash 报 $'\r' 错误）
+* text=auto
+deploy/* text eol=lf
+*.sh text eol=lf
