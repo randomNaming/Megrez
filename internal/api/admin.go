@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -329,6 +330,56 @@ func (s *Server) handleAdminLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	s.clearAdminCookie(w)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
+}
+
+// handleLogoutPage 供业务项目跳转退出：GET 不能带 CSRF 校验，但这里的副作用只是
+// 「把自己踢下线」，最坏情况是被诱骗退出一次，可接受。
+//
+// 支持 ?next=：退出后直接回到发起退出的业务项目，而不是掉进后台首页 ——
+// 业务项目那边再发起登录，用户看到的就是「登录 → 授权 → 回业务」这条路。
+func (s *Server) handleLogoutPage(w http.ResponseWriter, r *http.Request) {
+	hash := s.sessionHashFrom(r)
+	if hash != "" {
+		_ = s.Store.DeleteSession(hash)
+	}
+	s.clearAdminCookie(w)
+
+	if target := s.allowedNext(r.URL.Query().Get("next")); target != "" {
+		http.Redirect(w, r, target, http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+// allowedNext 只允许站内路径或以已登记项目域名开头的地址，避免开放重定向。
+func (s *Server) allowedNext(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if strings.HasPrefix(raw, "/") && !strings.HasPrefix(raw, "//") {
+		return raw
+	}
+	target, err := url.Parse(raw)
+	if err != nil || (target.Scheme != "http" && target.Scheme != "https") {
+		return ""
+	}
+	clients, err := s.Store.ListClients()
+	if err != nil {
+		return ""
+	}
+	for _, c := range clients {
+		if c.RevokedAt != nil {
+			continue
+		}
+		cu, err := url.Parse(c.RedirectURI)
+		if err != nil {
+			continue
+		}
+		if strings.EqualFold(cu.Host, target.Host) {
+			return raw
+		}
+	}
+	return ""
 }
 
 func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {

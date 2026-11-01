@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p pkg
           cp dist/megrez pkg/
-          cp deploy/install.sh deploy/megrez.service pkg/
+          cp deploy/install.sh deploy/update.sh deploy/megrez.service pkg/
           tar -C pkg -czf "dist/megrez-${{ matrix.name }}.tar.gz" .
       - name: package (windows)
         if: matrix.os == 'windows'

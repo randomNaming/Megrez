@@ -31,6 +31,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $outDir "megrez"))) {
 }
 
 Copy-Item -Path "deploy\install.sh" -Destination $outDir
+Copy-Item -Path "deploy\update.sh" -Destination $outDir
 Copy-Item -Path "deploy\megrez.service" -Destination $outDir
 
 & tar -czf $tarPath -C $distDir $name

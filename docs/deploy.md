@@ -7,7 +7,8 @@
 
 ```
 megrez              Linux 二进制（静态，约 15MB，服务器不需要装 Go）
-install.sh          一键安装脚本（建账号/目录、装二进制、写 systemd、启动）
+install.sh          首次安装（建账号/目录、装二进制、写 systemd、启动）
+update.sh           升级（只换二进制、先备份数据库、绝不碰 data）
 megrez.service      systemd 单元（含内存上限）
 ```
 
@@ -29,26 +30,33 @@ mkdir -p /www/wwwroot/megrez
 # 把压缩包传到服务器 /tmp/ 后，直接解压到目标目录
 tar xzf /tmp/megrez-v1.0.0-linux-amd64.tar.gz -C /www/wwwroot/megrez --strip-components=1
 cd /www/wwwroot/megrez
-sudo MEGREZ_PREFIX=/www/wwwroot/megrez bash install.sh
+# 程序与数据分开：换程序目录时，数据目录固定在这里，不会被换掉
+sudo MEGREZ_PREFIX=/www/wwwroot/megrez \
+     MEGREZ_DATA=/www/wwwroot/megrez-data \
+     bash install.sh
 ```
+
+> **数据目录一旦定下就不要改**。`install.sh` 若发现目标里没有库、但机器别处有库，会拒绝继续并提示，
+> 避免又悄悄建一个空库（症状就是后台重新出现「首次设置」）。
 
 > `tar -C` 不会自动建目录，所以第一行的 `mkdir -p` 不能省。
 
 装完目录长这样，全部在宝塔文件管理器里看得见、能手动改：
 
 ```
-/www/wwwroot/megrez/
-├── bin/megrez        二进制
-├── data/megrez.db    数据库（自动生成）
-├── data/signing.key  令牌签名私钥（自动生成）
-├── backup/           快照目录
-├── install.sh        安装脚本
-├── megrez.service
-├── nginx.conf
-└── nginx-baota.conf
+/www/wwwroot/megrez/          程序（可整体替换）
+├── bin/megrez
+├── backup/
+├── install.sh
+├── update.sh
+└── megrez.service
+
+/www/wwwroot/megrez-data/      数据（升级时绝不动）
+├── megrez.db
+└── signing.key
 ```
 
-脚本是幂等的，升级就是把新包解压覆盖、再跑一遍同一行命令，`data/` 不动。
+升级只换 `bin/megrez`，用 `update.sh`，不要重跑 `install.sh` 到另一个目录。
 
 ### 2. 宝塔里建站点
 
@@ -139,7 +147,23 @@ server {
 
 ## 五、日常运维
 
-**升级**：新包解压覆盖 → 重跑 `install.sh`（`data/` 保留，表结构启动时自动补列）。
+**升级**（推荐，且是唯一推荐方式）：
+
+```bash
+# 1. 新包只解压到临时目录
+mkdir -p /tmp/megrez-new
+tar xzf /tmp/megrez-vX.Y.Z-linux-amd64.tar.gz -C /tmp/megrez-new --strip-components=1
+
+# 2. 只换二进制：脚本会自己从 systemd 单元里读出路径，先备份库再替换
+sudo bash /tmp/megrez-new/update.sh /tmp/megrez-new/megrez
+```
+
+`update.sh` 的行为：读出当前二进制/数据库路径 → 在线备份数据库到 `backup/` → 停服务
+→ 替换二进制 → 启动 → 30 秒内 `/healthz` 通过才算完成。**它不会创建、移动或删除数据库。**
+
+> 为什么不能「解压到新目录再跑 install.sh」：`install.sh` 的数据库路径跟着
+> `MEGREZ_PREFIX/MEGREZ_DATA` 走，换了目录就等于换了一个空库，
+> 后台会重新出现「首次设置」，看起来像「升级后账号没了」。
 
 **备份**（运行中安全，不用停机）：
 

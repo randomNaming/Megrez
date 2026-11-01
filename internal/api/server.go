@@ -110,6 +110,8 @@ func (s *Server) routes() {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	m.HandleFunc("GET /admin", s.handleAdminPage)
+	// 业务项目只能发起 GET 跳转，因此单独给一个退出入口：清后台会话后回登录页。
+	m.HandleFunc("GET /logout", s.handleLogoutPage)
 	m.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	})
