@@ -22,7 +22,12 @@ case "$SRC" in
   http://*|https://*)
     TMP="$(mktemp -d)"
     echo "下载 $SRC"
-    curl -fsSL "$SRC" -o "$TMP/pkg.tar.gz"
+    if [ -n "${MEGREZ_TOKEN:-}" ]; then
+      # 私有仓库：用只读 PAT（GitHub → Settings → Fine-grained tokens → Contents: Read-only）
+      curl -fsSL -H "Authorization: Bearer ${MEGREZ_TOKEN}" "$SRC" -o "$TMP/pkg.tar.gz"
+    else
+      curl -fsSL "$SRC" -o "$TMP/pkg.tar.gz"
+    fi
     SRC="$TMP/pkg.tar.gz"
     ;;
 esac
