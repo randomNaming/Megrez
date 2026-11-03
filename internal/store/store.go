@@ -449,6 +449,11 @@ func (s *Store) RevokeClient(id string, now int64) error {
 	return err
 }
 
+func (s *Store) UpdateClientRedirect(id, uri string) error {
+	_, err := s.db.Exec(`UPDATE clients SET redirect_uri = ? WHERE client_id = ? AND revoked_at IS NULL`, uri, id)
+	return err
+}
+
 type AuthCode struct {
 	ClientID    string
 	RedirectURI string

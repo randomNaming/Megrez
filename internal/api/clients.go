@@ -99,6 +99,15 @@ type createClientReq struct {
 	TokenTTLMinutes int    `json:"token_ttl_minutes"`
 }
 
+// normalizeRedirectURI 只接受带 host 的 http/https 绝对地址，且不允许 # 片段。
+func normalizeRedirectURI(raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Fragment != "" {
+		return "", false
+	}
+	return u.String(), true
+}
+
 func (s *Server) handleCreateClient(w http.ResponseWriter, r *http.Request) {
 	var req createClientReq
 	if !decodeJSON(w, r, &req) {
@@ -109,8 +118,8 @@ func (s *Server) handleCreateClient(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "项目名必须 1-64 个字符")
 		return
 	}
-	u, err := url.Parse(strings.TrimSpace(req.RedirectURI))
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Fragment != "" {
+	redirectURI, ok := normalizeRedirectURI(req.RedirectURI)
+	if !ok {
 		writeErr(w, http.StatusBadRequest, "回调地址必须是完整的 http/https 地址且不带 # 片段")
 		return
 	}
@@ -136,7 +145,7 @@ func (s *Server) handleCreateClient(w http.ResponseWriter, r *http.Request) {
 	clientID := "app_" + idRaw
 	now := s.now()
 	if err := s.Store.CreateClient(&store.Client{
-		ID: clientID, Name: name, RedirectURI: u.String(),
+		ID: clientID, Name: name, RedirectURI: redirectURI,
 		TokenTTL: int64(ttlMin) * 60, CreatedAt: now,
 	}, sha256Hex(secret)); err != nil {
 		writeErr(w, http.StatusInternalServerError, "服务内部错误")
@@ -147,7 +156,7 @@ func (s *Server) handleCreateClient(w http.ResponseWriter, r *http.Request) {
 		"client_id":         clientID,
 		"client_secret":     secret,
 		"name":              name,
-		"redirect_uri":      u.String(),
+		"redirect_uri":      redirectURI,
 		"token_ttl_seconds": ttlMin * 60,
 	})
 }
@@ -169,4 +178,46 @@ func (s *Server) handleRevokeClient(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.Store.Audit(s.now(), "client_revoked", "", requestIP(r), id)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+type updateRedirectReq struct {
+	RedirectURI string `json:"redirect_uri"`
+}
+
+// handleUpdateClientRedirect 只改回调地址；client_id 和 secret 不动。
+func (s *Server) handleUpdateClientRedirect(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	c, _, err := s.Store.ClientByID(id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "服务内部错误")
+		return
+	}
+	if c == nil {
+		writeErr(w, http.StatusNotFound, "项目不存在")
+		return
+	}
+	if c.RevokedAt != nil {
+		writeErr(w, http.StatusConflict, "项目已吊销，不能再改回调地址")
+		return
+	}
+	var req updateRedirectReq
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	redirectURI, ok := normalizeRedirectURI(req.RedirectURI)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "回调地址必须是完整的 http/https 地址且不带 # 片段")
+		return
+	}
+	if redirectURI == c.RedirectURI {
+		writeJSON(w, http.StatusOK, map[string]string{"client_id": id, "redirect_uri": redirectURI})
+		return
+	}
+	if err := s.Store.UpdateClientRedirect(id, redirectURI); err != nil {
+		writeErr(w, http.StatusInternalServerError, "服务内部错误")
+		return
+	}
+	_ = s.Store.Audit(s.now(), "client_redirect_changed", "", requestIP(r),
+		id+" "+c.RedirectURI+" -> "+redirectURI)
+	writeJSON(w, http.StatusOK, map[string]string{"client_id": id, "redirect_uri": redirectURI})
 }

@@ -81,7 +81,11 @@
   .chip.revoked { color: var(--bad); background: var(--bad-bg); }
   .acts { display: flex; gap: 4px; justify-content: flex-end; }
   .empty { padding: 26px 0; text-align: center; color: var(--ink-faint); font-size: 13px; }
-  .pairbox { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  .pairbox { display: flex; align-items: center; gap: 22px; margin-top: 16px; }
+  .pairqr { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fff; }
+  .pairqr img { display: block; width: 168px; height: 168px; }
+  .pairmeta { display: flex; flex-direction: column; gap: 6px; }
+  .pairmeta .cap { font-size: 12px; color: var(--ink-faint); }
   .paircode { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 19px; letter-spacing: .12em; color: var(--ink); }
   .countdown { font-size: 12px; color: var(--ink-faint); }
   .log { margin: 0; padding: 0; list-style: none; }
@@ -90,7 +94,6 @@
   .log .t { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
   .log .e { color: var(--ink); }
   .log .d { color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .hidden { display: none !important; }
 
   .enroll { display: grid; grid-template-columns: 292px 1fr; gap: 26px; align-items: start; }
@@ -109,10 +112,11 @@
   .pwgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .secretbox { margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-soft); padding: 14px; }
   .secretbox .lab { font-size: 12px; color: var(--ink-faint); }
-  .secretbox .kv { margin-top: 4px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--ink); word-break: break-all; }
+  .secretbox .kvrow { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .secretbox .kv { flex: 1 1 auto; min-width: 0; margin-top: 0; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--ink); word-break: break-all; }
+  .redirectedit { width: 100%; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; padding: 6px 8px; }
 
   @media (max-width: 860px) {
-    .split { grid-template-columns: 1fr; }
     .log li { grid-template-columns: 1fr 1fr; }
     table { table-layout: auto; }
     .enroll { grid-template-columns: 1fr; }
@@ -226,52 +230,6 @@
       <div id="deviceEmpty" class="empty hidden">还没有任何设备注册过。</div>
     </section>
 
-    <div class="split">
-      <section class="card">
-        <div class="card-head">
-          <h2>一次性配对码</h2>
-          <span class="hint">用它才能注册</span>
-        </div>
-        <div class="row">
-          <div class="field" style="max-width:180px">
-            <label for="ttl">有效期（分钟）</label>
-            <input id="ttl" type="number" min="1" max="1440" value="10">
-          </div>
-          <button id="pairBtn" class="primary">生成</button>
-        </div>
-        <div id="pairBox" class="pairbox hidden">
-          <span id="pairCode" class="paircode"></span>
-          <span id="pairCountdown" class="countdown"></span>
-        </div>
-        <div id="pairMsg" class="msg"></div>
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2>审计</h2>
-          <span id="auditHint" class="hint"></span>
-        </div>
-        <ul id="auditList" class="log"></ul>
-        <div id="auditEmpty" class="empty hidden">暂无记录。</div>
-      </section>
-    </div>
-
-    <section class="card">
-      <div class="card-head">
-        <h2>修改密码</h2>
-        <span class="hint">至少 14 位；改完所有会话失效，需要重新登录</span>
-      </div>
-      <div class="pwgrid">
-        <div class="field"><label for="pwCur">当前密码</label><input id="pwCur" type="password" autocomplete="current-password"></div>
-        <div class="field"><label for="pwNew">新密码</label><input id="pwNew" type="password" autocomplete="new-password"></div>
-        <div class="field"><label for="pwNew2">确认新密码</label><input id="pwNew2" type="password" autocomplete="new-password"></div>
-      </div>
-      <div class="row" style="margin-top:14px">
-        <button id="pwBtn" class="primary">保存新密码</button>
-      </div>
-      <div id="pwMsg" class="msg"></div>
-    </section>
-
     <section class="card">
       <div class="card-head">
         <h2>接入项目</h2>
@@ -302,10 +260,66 @@
       <div id="secretBox" class="secretbox hidden">
         <div class="lab">只显示这一次，关掉页面就看不到了——把这两行填进项目后端的环境变量。</div>
         <div class="lab" style="margin-top:10px">client_id</div>
-        <div class="kv" id="sClientId"></div>
+        <div class="kvrow">
+          <div class="kv" id="sClientId"></div>
+          <button id="copyClientId" class="small">复制</button>
+        </div>
         <div class="lab" style="margin-top:10px">client_secret</div>
-        <div class="kv" id="sSecret"></div>
+        <div class="kvrow">
+          <div class="kv" id="sSecret"></div>
+          <button id="copySecret" class="small">复制</button>
+        </div>
       </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>一次性配对码</h2>
+        <span class="hint">用它才能注册</span>
+      </div>
+      <div class="row">
+        <div class="field" style="max-width:180px">
+          <label for="ttl">有效期（分钟）</label>
+          <input id="ttl" type="number" min="1" max="1440" value="10">
+        </div>
+        <button id="pairBtn" class="primary">生成</button>
+      </div>
+      <div id="pairBox" class="pairbox hidden">
+        <div id="pairQrWrap" class="pairqr">
+          <img id="pairQr" alt="配对码二维码" width="168" height="168">
+        </div>
+        <div class="pairmeta">
+          <div class="cap">配对码（扫不出来时手动输入这串）</div>
+          <span id="pairCode" class="paircode"></span>
+          <span id="pairCountdown" class="countdown"></span>
+        </div>
+      </div>
+      <div id="pairMsg" class="msg"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>修改密码</h2>
+        <span class="hint">至少 14 位；改完所有会话失效，需要重新登录</span>
+      </div>
+      <div class="pwgrid">
+        <div class="field"><label for="pwCur">当前密码</label><input id="pwCur" type="password" autocomplete="current-password"></div>
+        <div class="field"><label for="pwNew">新密码</label><input id="pwNew" type="password" autocomplete="new-password"></div>
+        <div class="field"><label for="pwNew2">确认新密码</label><input id="pwNew2" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button id="pwBtn" class="primary">保存新密码</button>
+      </div>
+      <div id="pwMsg" class="msg"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>审计</h2>
+        <span id="auditHint" class="hint"></span>
+      </div>
+      <ul id="auditList" class="log"></ul>
+      <div id="auditEmpty" class="empty hidden">暂无记录。</div>
     </section>
   </div>
 </div>
@@ -318,6 +332,9 @@
   var setupCard = $('setupCard'), loginCard = $('loginCard'), otpCard = $('otpCard'),
       enrollCard = $('enrollCard'), mainArea = $('mainArea');
   var otpToken = null;
+  var otpLastCode = '';
+  var lastClients = [];
+  var editingClientID = null;
   var countdownTimer = null;
   // SSO 回跳：只接受站内路径，防止被拿去做开放重定向。
   var nextURL = (function () {
@@ -333,6 +350,35 @@
   function setMsg(el, text, kind) {
     el.textContent = text || '';
     el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  // 复制到剪贴板：优先 Clipboard API，非安全上下文（纯 HTTP 访问）退回选区复制。
+  function copyText(text, btn) {
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+    var done = function (ok) {
+      btn.textContent = ok ? '已复制' : '复制失败';
+      clearTimeout(btn._copyTimer);
+      btn._copyTimer = setTimeout(function () {
+        btn.textContent = btn.dataset.label;
+      }, 1500);
+    };
+    var fallback = function () {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+      return;
+    }
+    fallback();
   }
 
   function api(path, opts) {
@@ -383,6 +429,7 @@
   function showOTP() {
     hideAll();
     otpCard.classList.remove('hidden');
+    otpLastCode = '';
     $('otpCode').value = '';
     setMsg($('otpMsg'), '');
     $('otpCode').focus();
@@ -505,13 +552,36 @@
   }
 
   function renderClients(clients) {
+    lastClients = clients;
     var rows = $('clientRows');
     rows.innerHTML = '';
     $('clientEmpty').classList.toggle('hidden', clients.length > 0);
     clients.forEach(function (c) {
+      var editing = !c.revoked && editingClientID === c.client_id;
       var tr = document.createElement('tr');
       tr.appendChild(cell(c.name, 'name'));
-      tr.appendChild(cell(c.redirect_uri, 'mono'));
+
+      if (editing) {
+        var rdCell = document.createElement('td');
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'redirectInput';
+        input.className = 'redirectedit';
+        input.value = c.redirect_uri;
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            saveRedirect(c);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelRedirectEdit();
+          }
+        });
+        rdCell.appendChild(input);
+        tr.appendChild(rdCell);
+      } else {
+        tr.appendChild(cell(c.redirect_uri, 'mono'));
+      }
 
       var ttl = c.token_ttl_seconds > 0
         ? (c.token_ttl_seconds >= 86400 ? (c.token_ttl_seconds / 86400).toFixed(0) + ' 天'
@@ -529,7 +599,11 @@
       var acts = document.createElement('td');
       var box = document.createElement('div');
       box.className = 'acts';
-      if (!c.revoked) {
+      if (editing) {
+        box.appendChild(actionBtn('保存', 'primary', function () { saveRedirect(c); }));
+        box.appendChild(actionBtn('取消', '', cancelRedirectEdit));
+      } else if (!c.revoked) {
+        box.appendChild(actionBtn('改回调', '', function () { startRedirectEdit(c); }));
         box.appendChild(actionBtn('吊销', '', function () {
           if (!window.confirm('吊销后该项目不能再发起登录，确定？')) return;
           api('/api/admin/clients/' + encodeURIComponent(c.client_id) + '/revoke', { method: 'POST', body: {} })
@@ -540,6 +614,42 @@
       acts.appendChild(box);
       tr.appendChild(acts);
       rows.appendChild(tr);
+    });
+  }
+
+  function startRedirectEdit(c) {
+    editingClientID = c.client_id;
+    renderClients(lastClients);
+    var input = $('redirectInput');
+    if (input) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  }
+
+  function cancelRedirectEdit() {
+    editingClientID = null;
+    renderClients(lastClients);
+  }
+
+  function saveRedirect(c) {
+    var input = $('redirectInput');
+    if (!input) return;
+    var uri = input.value.trim();
+    if (!uri) {
+      setMsg($('clientMsg'), '回调地址不能为空', 'error');
+      input.focus();
+      return;
+    }
+    setMsg($('clientMsg'), '正在保存…');
+    api('/api/admin/clients/' + encodeURIComponent(c.client_id) + '/redirect', {
+      method: 'POST', body: { redirect_uri: uri }
+    }).then(function (res) {
+      editingClientID = null;
+      setMsg($('clientMsg'), '回调地址已改为 ' + res.redirect_uri, 'ok');
+      return refreshAll();
+    }).catch(function (err) {
+      setMsg($('clientMsg'), err.message, 'error');
     });
   }
 
@@ -607,8 +717,10 @@
     });
   });
 
-  $('otpBtn').addEventListener('click', function () {
-    var btn = this;
+  // 6 位填满自动提交，回车也等同于点确认；两者都走这里，请求在途时忽略重复触发。
+  function submitOTP() {
+    var btn = $('otpBtn');
+    if (btn.disabled) return;
     var code = $('otpCode').value.trim();
     if (code.length !== 6) {
       setMsg($('otpMsg'), '请输入 6 位数字', 'error');
@@ -618,6 +730,7 @@
       showLogin('登录状态已超时，请重新输入账号密码');
       return;
     }
+    otpLastCode = code;
     btn.disabled = true;
     setMsg($('otpMsg'), '正在验证…');
     api('/api/admin/login/otp', { method: 'POST', body: { otp_token: otpToken, code: code } })
@@ -635,6 +748,23 @@
       .then(function () {
         btn.disabled = false;
       });
+  }
+
+  $('otpBtn').addEventListener('click', submitOTP);
+
+  $('otpCode').addEventListener('input', function () {
+    // 只留数字，挡住输入法或粘贴带进来的杂字符。
+    var v = this.value.replace(/\D/g, '').slice(0, 6);
+    if (this.value !== v) this.value = v;
+    // 输入满 6 位且不是刚才提交过的那串，就自动验证。
+    if (v.length === 6 && v !== otpLastCode) submitOTP();
+  });
+
+  $('otpCode').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitOTP();
+    }
   });
 
   $('otpBack').addEventListener('click', function () {
@@ -686,6 +816,8 @@
       method: 'POST', body: { ttl_minutes: parseInt($('ttl').value, 10) || 10 }
     }).then(function (data) {
       $('pairBox').classList.remove('hidden');
+      $('pairQrWrap').classList.remove('hidden');
+      $('pairQr').src = data.qr_data_uri;
       $('pairCode').textContent = data.code;
       setMsg($('pairMsg'), '只显示这一次，过期或使用后即失效。', 'ok');
       var deadline = Date.now() + data.expires_in * 1000;
@@ -694,7 +826,11 @@
         var left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
         var m = Math.floor(left / 60), s = left % 60;
         $('pairCountdown').textContent = left > 0 ? ('剩余 ' + m + ':' + (s < 10 ? '0' + s : s)) : '已过期';
-        if (left <= 0) clearInterval(countdownTimer);
+        if (left <= 0) {
+          // 过期后二维码也不能再用，直接收起，避免扫到的是一张死码。
+          $('pairQrWrap').classList.add('hidden');
+          clearInterval(countdownTimer);
+        }
       };
       tick();
       countdownTimer = setInterval(tick, 1000);
@@ -762,6 +898,14 @@
     }).then(function () {
       btn.disabled = false;
     });
+  });
+
+  $('copyClientId').addEventListener('click', function () {
+    copyText($('sClientId').textContent, this);
+  });
+
+  $('copySecret').addEventListener('click', function () {
+    copyText($('sSecret').textContent, this);
   });
 
   // 首屏：先判断有没有初始化，再按会话状态决定落在哪一页。

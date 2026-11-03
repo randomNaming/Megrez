@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/skip2/go-qrcode"
 
 	"megrez/internal/auth"
 	"megrez/internal/store"
@@ -520,7 +523,18 @@ func (s *Server) handleCreatePairCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.Store.Audit(now, "pair_code_created", "", requestIP(r), "")
-	writeJSON(w, http.StatusCreated, map[string]any{"code": pretty, "expires_at": exp, "expires_in": ttl * 60})
+	// 二维码内容就是配对码本身：移动端扫码即得，扫不了还能照着下面的文字手动输。
+	qrPNG, err := qrcode.Encode(pretty, qrcode.Medium, 480)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "生成二维码失败")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"code":        pretty,
+		"expires_at":  exp,
+		"expires_in":  ttl * 60,
+		"qr_data_uri": "data:image/png;base64," + base64.StdEncoding.EncodeToString(qrPNG),
+	})
 }
 
 func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {

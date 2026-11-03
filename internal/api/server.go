@@ -93,6 +93,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/admin/clients", s.requireAdmin(s.handleListClients))
 	m.HandleFunc("POST /api/admin/clients", s.requireAdmin(s.handleCreateClient))
 	m.HandleFunc("POST /api/admin/clients/{id}/revoke", s.requireAdmin(s.handleRevokeClient))
+	m.HandleFunc("POST /api/admin/clients/{id}/redirect", s.requireAdmin(s.handleUpdateClientRedirect))
 	m.HandleFunc("GET /api/admin/devices", s.requireAdmin(s.handleListDevices))
 	m.HandleFunc("POST /api/admin/devices/{id}/approve", s.requireAdmin(s.handleApprove))
 	m.HandleFunc("POST /api/admin/devices/{id}/reject", s.requireAdmin(s.handleReject))

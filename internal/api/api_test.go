@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -353,6 +354,34 @@ func TestPairCodeIsSingleUse(t *testing.T) {
 	body["public_key"] = b64(pub2)
 	if c, _ := e.call(http.MethodPost, "/api/device/register", body, nil, ""); c != http.StatusForbidden {
 		t.Fatalf("同一配对码第二次应被拒绝，实际 %d", c)
+	}
+}
+
+// 生成配对码时一并返回二维码，扫码内容是配对码本身；文字版保留，供手动输入。
+func TestPairCodeResponseCarriesQR(t *testing.T) {
+	e := newEnv(t)
+	admin := e.adminClient()
+
+	code, out := e.call(http.MethodPost, "/api/admin/pair-codes",
+		map[string]any{"ttl_minutes": 10}, admin, "")
+	if code != http.StatusCreated {
+		t.Fatalf("生成配对码应成功，实际 %d: %v", code, out)
+	}
+	pretty, _ := out["code"].(string)
+	if pretty == "" {
+		t.Fatalf("应返回配对码文本: %v", out)
+	}
+	uri, _ := out["qr_data_uri"].(string)
+	const prefix = "data:image/png;base64,"
+	if !strings.HasPrefix(uri, prefix) {
+		t.Fatalf("应返回 PNG 数据 URI，实际 %.40v", uri)
+	}
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(uri, prefix))
+	if err != nil {
+		t.Fatalf("二维码 base64 解析失败: %v", err)
+	}
+	if _, err := png.Decode(bytes.NewReader(raw)); err != nil {
+		t.Fatalf("二维码不是有效 PNG: %v", err)
 	}
 }
 
@@ -892,5 +921,65 @@ func TestClientsManageViaAPI(t *testing.T) {
 	res.Body.Close()
 	if res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("已吊销的项目不应能发起授权，实际 %d", res.StatusCode)
+	}
+}
+
+// 回调地址允许改：client_id 与 secret 不变，旧地址立即失效。
+func TestClientRedirectCanBeEdited(t *testing.T) {
+	e := newEnv(t)
+	admin := e.adminClient()
+
+	code, out := e.call(http.MethodPost, "/api/admin/clients", map[string]any{
+		"name": "crm-mini", "redirect_uri": "https://old.example.com/cb",
+	}, admin, "")
+	if code != http.StatusCreated {
+		t.Fatalf("登记项目应成功，实际 %d: %v", code, out)
+	}
+	clientID, _ := out["client_id"].(string)
+	path := "/api/admin/clients/" + url.PathEscape(clientID) + "/redirect"
+
+	if c, _ := e.call(http.MethodPost, path,
+		map[string]string{"redirect_uri": "https://new.example.com/cb#frag"}, admin, ""); c != http.StatusBadRequest {
+		t.Fatalf("带 # 的回调地址应被拒绝，实际 %d", c)
+	}
+
+	code, out = e.call(http.MethodPost, path,
+		map[string]string{"redirect_uri": "https://new.example.com/cb"}, admin, "")
+	if code != http.StatusOK {
+		t.Fatalf("改回调地址应成功，实际 %d: %v", code, out)
+	}
+
+	_, list := e.call(http.MethodGet, "/api/admin/clients", nil, admin, "")
+	first, _ := list["clients"].([]any)[0].(map[string]any)
+	if first["redirect_uri"] != "https://new.example.com/cb" {
+		t.Fatalf("列表应显示新回调地址，实际 %v", first["redirect_uri"])
+	}
+
+	nf := noFollow(admin.Jar)
+	for _, tc := range []struct {
+		uri  string
+		want int
+	}{
+		{"https://old.example.com/cb", http.StatusBadRequest},
+		{"https://new.example.com/cb", http.StatusOK},
+	} {
+		res, err := nf.Get(e.ts.URL + "/oauth/authorize?client_id=" + url.QueryEscape(clientID) +
+			"&redirect_uri=" + url.QueryEscape(tc.uri))
+		if err != nil {
+			t.Fatalf("请求授权端点失败: %v", err)
+		}
+		res.Body.Close()
+		if res.StatusCode != tc.want {
+			t.Fatalf("回调地址 %s 应返回 %d，实际 %d", tc.uri, tc.want, res.StatusCode)
+		}
+	}
+
+	if c, _ := e.call(http.MethodPost, "/api/admin/clients/"+url.PathEscape(clientID)+"/revoke",
+		nil, admin, ""); c != http.StatusOK {
+		t.Fatalf("吊销项目失败，实际 %d", c)
+	}
+	if c, _ := e.call(http.MethodPost, path,
+		map[string]string{"redirect_uri": "https://other.example.com/cb"}, admin, ""); c != http.StatusConflict {
+		t.Fatalf("已吊销的项目不应能改回调地址，实际 %d", c)
 	}
 }

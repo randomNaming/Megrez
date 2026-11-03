@@ -1,4 +1,4 @@
-﻿# 在 Windows 上打出 Linux 发布包：dist/megrez-<版本>-linux-amd64.tar.gz
+﻿﻿# 在 Windows 上打出 Linux 发布包：dist/megrez-<版本>-linux-amd64.tar.gz
 # 用法：powershell -ExecutionPolicy Bypass -File scripts\package.ps1 -Version v1.0.0
 param(
     [string]$Version = "dev"
